@@ -1,5 +1,4 @@
 name: UI Automation CI # Name of your workflow
-
 on:
   workflow_dispatch: # Allows manual triggering (which n8n uses)
   push:
