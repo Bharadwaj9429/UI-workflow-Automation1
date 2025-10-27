@@ -9,7 +9,7 @@ on:
         type: string
   push:
     branches:
-      - 'auto/ui-*'
+      - 'auto/ui-1761563189205'
 
 jobs:
   build-and-test:
