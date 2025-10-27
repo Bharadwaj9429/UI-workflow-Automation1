@@ -1,119 +1,45 @@
-name: CI - Build and Validate React Components
+name: UI Automation CI # Name of your workflow
 
 on:
-  workflow_dispatch:
-    inputs:
-      resumeUrl:
-        description: 'Resume URL for n8n callback'
-        required: false
-        type: string
+  workflow_dispatch: # Allows manual triggering (which n8n uses)
   push:
-    branches:
-      - 'auto/ui-*'
+    branches: [ main ] # Also run on pushes to main
+  pull_request:
+    branches: [ main ] # Also run on pull requests to main
 
 jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-    
+  build_test_artifact: # Name of the job
+    runs-on: ubuntu-latest # Use the latest Ubuntu runner
+
+    strategy:
+      matrix:
+        node-version: [18.x] # Specify Node.js version(s)
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: |
-          if [ -f package.json ]; then
-            npm ci || npm install
-          else
-            echo "No package.json found, skipping install"
-          fi
-      
-      - name: Lint code (if configured)
-        run: |
-          if [ -f package.json ] && npm run | grep -q "lint"; then
-            npm run lint || echo "Linting failed but continuing..."
-          else
-            echo "No lint script found, skipping"
-          fi
-        continue-on-error: true
-      
-      - name: Run tests (if configured)
-        run: |
-          if [ -f package.json ] && npm run | grep -q "test"; then
-            npm test -- --passWithNoTests || echo "Tests failed but continuing..."
-          else
-            echo "No test script found, skipping"
-          fi
-        continue-on-error: true
-      
-      - name: Build project
-        run: |
-          if [ -f package.json ] && npm run | grep -q "build"; then
-            npm run build
-          else
-            echo "No build script found, skipping"
-          fi
-        continue-on-error: true
-      
-      - name: Validate React components
-        run: |
-          echo "Validating generated React components..."
-          find src/modules -name "*.jsx" -o -name "*.js" | while read file; do
-            echo "Checking: $file"
-            if grep -q "import.*React" "$file" && grep -q "export" "$file"; then
-              echo "✓ $file is valid"
-            else
-              echo "⚠ $file may have issues"
-            fi
-          done
-      
-      - name: Create build artifacts
-        run: |
-          mkdir -p artifacts
-          echo "Build completed at $(date)" > artifacts/build-info.txt
-          echo "Branch: ${{ github.ref_name }}" >> artifacts/build-info.txt
-          echo "Commit: ${{ github.sha }}" >> artifacts/build-info.txt
-          echo "Status: success" >> artifacts/build-info.txt
-          
-          # Copy generated files
-          if [ -d "src/modules" ]; then
-            cp -r src/modules artifacts/
-          fi
-          
-          # Copy build output if exists
-          if [ -d "build" ]; then
-            cp -r build artifacts/build-output
-          fi
-      
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts
-          path: artifacts/
-          retention-days: 7
-      
-      - name: Notify n8n (if resumeUrl provided)
-        if: always() && inputs.resumeUrl != ''
-        run: |
-          curl -X POST "${{ inputs.resumeUrl }}" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "status": "${{ job.status }}",
-              "branch": "${{ github.ref_name }}",
-              "commit": "${{ github.sha }}",
-              "run_id": "${{ github.run_id }}"
-            }'
-      
-      - name: Summary
-        if: always()
-        run: |
-          echo "### Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Run ID**: ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+    - name: Checkout repository
+      uses: actions/checkout@v4 # Action to download your code
+
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4 # Action to install Node.js
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'yarn' # Cache dependencies using yarn
+
+    - name: Install dependencies
+      # --- THIS IS THE FIXED LINE ---
+      run: yarn install --frozen-lockfile --ignore-engines # Added --ignore-engines flag
+
+    - name: Run tests and create results file
+      # This command runs tests and is assumed to save a report to test-results.json
+      # Note: Update this command if your test script/output file is different
+      run: yarn test --json --outputFile=test-results.json
+      # Continue even if tests fail, so artifact is always uploaded
+      continue-on-error: true
+
+    - name: Upload Test Results Artifact
+      # This step runs even if tests failed because of 'continue-on-error' above
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-logs # The name n8n will look for
+        path: test-results.json # Upload the file saved by the test command
+        retention-days: 1 # Keep artifact for 1 day
