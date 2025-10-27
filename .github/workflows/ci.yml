@@ -9,5 +9,4 @@ on:
 
 jobs:
   call-reusable-workflow:
-    uses: ./.github/workflows/ci-reusable.yml@master
-    # ☝️ This @master means "always use master's version"!
+    uses: ./.github/workflows/ci-reusable.ym
