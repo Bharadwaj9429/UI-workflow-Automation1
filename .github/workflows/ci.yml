@@ -1,0 +1,13 @@
+name: CI - Build and Validate React Components
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master, auto/ui-1761563189205 ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  call-reusable-workflow:
+    uses: ./.github/workflows/ci-reusable.yml@master
+    # ☝️ This @master means "always use master's version"!
