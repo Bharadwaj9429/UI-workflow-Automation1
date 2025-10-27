@@ -33,7 +33,7 @@ jobs:
     # --- Update test command if needed (use npm if yarn test fails) ---
     - name: Run tests and create results file
       # Assuming 'yarn test' still works, otherwise use 'npm test -- --json --outputFile=test-results.json'
-      run: yarn test --json --outputFile=test-results.json
+      run: npm test --json --outputFile=test-results.json
       continue-on-error: true
 
     - name: Upload Test Results Artifact
