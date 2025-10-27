@@ -1,45 +1,41 @@
-name: UI Automation CI # Name of your workflow
+name: UI Automation CI
 
 on:
-  workflow_dispatch: # Allows manual triggering (which n8n uses)
+  workflow_dispatch:
   push:
-    branches: [ main ] # Also run on pushes to main
+    branches: [ master ] # Assuming your default branch is master
   pull_request:
-    branches: [ main ] # Also run on pull requests to main
+    branches: [ master ]
 
 jobs:
-  build_test_artifact: # Name of the job
-    runs-on: ubuntu-latest # Use the latest Ubuntu runner
+  build_test_artifact:
+    runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        node-version: [18.x] # Specify Node.js version(s)
+        node-version: [18.x]
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4 # Action to download your code
+      uses: actions/checkout@v4
 
     - name: Set up Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4 # Action to install Node.js
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
-        cache: 'yarn' # Cache dependencies using yarn
+        cache: 'yarn'
 
     - name: Install dependencies
       # --- THIS IS THE FIXED LINE ---
-      run: yarn install --frozen-lockfile --legacy-peer-deps # Use --legacy-peer-deps flag
+      run: yarn install --frozen-lockfile --force # Use --force flag
 
     - name: Run tests and create results file
-      # This command runs tests and is assumed to save a report to test-results.json
-      # Note: Update this command if your test script/output file is different
       run: yarn test --json --outputFile=test-results.json
-      # Continue even if tests fail, so artifact is always uploaded
       continue-on-error: true
 
     - name: Upload Test Results Artifact
-      # This step runs even if tests failed because of 'continue-on-error' above
       uses: actions/upload-artifact@v4
       with:
-        name: test-logs # The name n8n will look for
-        path: test-results.json # Upload the file saved by the test command
-        retention-days: 1 # Keep artifact for 1 day
+        name: test-logs
+        path: test-results.json
+        retention-days: 1
