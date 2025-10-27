@@ -3,7 +3,7 @@ name: CI - Build and Validate React Components
 on:
   workflow_dispatch:
   push:
-    branches: [ master ]
+    branches: [ master, auto/** ]
   pull_request:
     branches: [ master ]
 
@@ -25,21 +25,25 @@ jobs:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
 
-    # Install dependencies with peer conflict ignored
-    - name: Install dependencies
-      run: npm install --legacy-peer-deps
+    # 🧩 Force-install with legacy peer deps
+    - name: Install dependencies (force legacy)
+      run: |
+        echo "=== Installing dependencies with legacy peer deps ==="
+        npm install --legacy-peer-deps --force
+        echo "=== Installation complete ==="
 
-    # Run tests and generate results file
+    # 🧪 Run tests safely
     - name: Run tests and create results file
       run: |
         if [ -f package.json ]; then
+          echo "=== Running tests ==="
           npm test -- --json --outputFile=test-results.json || true
         else
           echo "No package.json found, skipping tests" > test-results.json
         fi
       continue-on-error: true
 
-    # Upload test result artifact
+    # 📦 Upload test results
     - name: Upload Test Results Artifact
       uses: actions/upload-artifact@v4
       with:
