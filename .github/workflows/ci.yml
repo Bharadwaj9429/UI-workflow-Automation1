@@ -1,44 +1,54 @@
 name: UI Automation CI
 
 on:
+  # Allow triggering from n8n
   workflow_dispatch:
+  # Also run on pushes/PRs to any branch
   push:
-    branches: [ "*" ] # Assuming your default branch is master
+    branches: [ '*' ]
   pull_request:
-    branches: [ "*" ]
+    branches: [ '*' ]
 
 jobs:
   build_test_artifact:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Use a standard Linux runner
 
     strategy:
       matrix:
-        node-version: [18.x]
+        node-version: [18.x] # Define Node.js version
 
     steps:
+    # 1. Get the code from the specific branch being tested
     - name: Checkout repository
       uses: actions/checkout@v4
 
+    # 2. Set up the correct Node.js version and cache npm packages
     - name: Set up Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
-        # --- Cache using npm now ---
-        cache: 'npm'
+        cache: 'npm' # Use npm for caching
+        cache-dependency-path: package-lock.json # Use lock file for cache accuracy
 
+    # 3. Clean npm cache to avoid stale data
+    - name: Clean npm cache
+      run: npm cache clean --force
+
+    # 4. Install dependencies, forcing through peer conflicts
     - name: Install dependencies
-      # --- THIS IS THE FIXED LINE ---
-      run: npm install --force # Use npm install --force
+      run: npm install --force
 
-    # --- Update test command if needed (use npm if yarn test fails) ---
+    # 5. Run the tests and output results to a file
     - name: Run tests and create results file
-      # Assuming 'yarn test' still works, otherwise use 'npm test -- --json --outputFile=test-results.json'
-      run: npm test --json --outputFile=test-results.json
-      continue-on-error: true
+      # Ensure 'npm test' script generates 'test-results.json'
+      run: npm test -- --json --outputFile=test-results.json
+      continue-on-error: true # Allow workflow to continue even if tests fail
 
+    # 6. Upload the test results file as an artifact
     - name: Upload Test Results Artifact
+      # This runs even if tests failed because of 'continue-on-error'
       uses: actions/upload-artifact@v4
       with:
-        name: test-logs
-        path: test-results.json
-        retention-days: 1
+        name: test-logs # Name n8n will look for
+        path: test-results.json # File to upload
+        retention-days: 1 # Keep artifact for 1 day
