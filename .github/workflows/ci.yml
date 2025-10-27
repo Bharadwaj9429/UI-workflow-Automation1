@@ -3,9 +3,9 @@ name: UI Automation CI
 on:
   workflow_dispatch:
   push:
-    branches: [ master ] # Assuming your default branch is master
+    branches: [ "*" ] # Assuming your default branch is master
   pull_request:
-    branches: [ master ]
+    branches: [ "*" ]
 
 jobs:
   build_test_artifact:
