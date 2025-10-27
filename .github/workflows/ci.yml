@@ -1,4 +1,5 @@
 name: UI Automation CI # Name of your workflow
+
 on:
   workflow_dispatch: # Allows manual triggering (which n8n uses)
   push:
@@ -26,7 +27,7 @@ jobs:
 
     - name: Install dependencies
       # --- THIS IS THE FIXED LINE ---
-      run: yarn install --frozen-lockfile --ignore-engines # Added --ignore-engines flag
+      run: yarn install --frozen-lockfile --legacy-peer-deps # Use --legacy-peer-deps flag
 
     - name: Run tests and create results file
       # This command runs tests and is assumed to save a report to test-results.json
