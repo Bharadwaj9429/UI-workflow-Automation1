@@ -1,36 +1,27 @@
-name: CI - Build and Validate React Components
+name: Reusable CI Workflow
 
 on:
-  workflow_dispatch:
-  push:
-    branches: [ master, auto/ui-1761563189205 ]
-  pull_request:
-    branches: [ master ]
+  workflow_call:  # This makes it callable from other workflows
 
 jobs:
   build_test_artifact:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [18.x]
-
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-
-    - name: Set up Node.js ${{ matrix.node-version }}
+    
+    - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: ${{ matrix.node-version }}
-
+        node-version: 18
+    
     - name: Install dependencies with legacy peer deps
       run: npm install --legacy-peer-deps --force
-
+    
     - name: Run tests
       run: npm test -- --json --outputFile=test-results.json || true
       continue-on-error: true
-
+    
     - name: Upload Test Results
       uses: actions/upload-artifact@v4
       with:
