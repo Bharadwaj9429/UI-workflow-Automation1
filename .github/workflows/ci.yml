@@ -1,49 +1,50 @@
-name: UI Automation CI
+name: CI Build and Test
 
 on:
-  workflow_dispatch: # Allows manual triggering (which n8n uses)
   push:
-    branches: [ '*' ] # Run on pushes to ALL branches
+    branches: [ "master" ]
   pull_request:
-    branches: [ '*' ] # Run on pull requests targeting ALL branches
+    branches: [ "master" ]
 
 jobs:
-  build_test_artifact:
-    runs-on: ubuntu-latest # Use the latest Ubuntu runner
-
-    strategy:
-      matrix:
-        node-version: [18.x] # Specify Node.js version
+  build:
+    runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4 # Action to download your code
+      # Step 1: Checkout repo
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Set up Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4 # Action to install Node.js
-      with:
-        node-version: ${{ matrix.node-version }}
-        cache: 'npm' # Cache using npm
-        cache-dependency-path: package-lock.json # Use lock file for cache accuracy
+      # Step 2: Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
 
-    - name: Clean npm cache
-      run: npm cache clean --force # Clean cache before install
+      # Step 3: Install dependencies (ignore peer conflicts)
+      - name: Install dependencies
+        run: |
+          if [ -f package.json ]; then
+            npm install --legacy-peer-deps
+          else
+            echo "No package.json found, skipping install"
+          fi
 
-    - name: Install dependencies
-      # Use npm install --force to bypass peer dependency conflicts
-      run: npm install --force
+      # Step 4: Run build (optional — only if your project needs build)
+      - name: Build project
+        run: |
+          if [ -f package.json ]; then
+            npm run build --if-present
+          else
+            echo "No build step found"
+          fi
 
-    - name: Run tests and create results file
-      # Runs the 'test' script from package.json (which we added the placeholder for)
-      # Ensure your 'test' script outputs a file named test-results.json
-      run: npm test -- --json --outputFile=test-results.json
-      continue-on-error: true # Allow workflow to continue even if tests fail
-
-    - name: Upload Test Results Artifact
-      # Upload results even if tests failed
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-logs # Name for n8n to reference
-        path: test-results.json # Path to the generated test results
-        if-no-files-found: ignore # Don't fail if test file isn't created
-        retention-days: 1 # Keep artifact for 1 day
+      # Step 5: Run tests
+      - name: Run tests
+        run: |
+          if [ -f package.json ]; then
+            npm test --if-present
+          else
+            echo "No test script found"
+          fi
