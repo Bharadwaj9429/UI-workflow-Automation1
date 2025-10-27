@@ -1,119 +1,54 @@
-name: CI - Build and Validate React Components
+name: UI Automation CI
 
 on:
+  # Allow triggering from n8n
   workflow_dispatch:
-    inputs:
-      resumeUrl:
-        description: 'Resume URL for n8n callback'
-        required: false
-        type: string
+  # Also run on pushes/PRs to any branch
   push:
-    branches:
-      - 'auto/ui-*'
+    branches: [ '*' ]
+  pull_request:
+    branches: [ '*' ]
 
 jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-    
+  build_test_artifact:
+    runs-on: ubuntu-latest # Use a standard Linux runner
+
+    strategy:
+      matrix:
+        node-version: [18.x] # Define Node.js version
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-      
-      - name: Install dependencies
-        run: |
-          if [ -f package.json ]; then
-            npm ci || npm install
-          else
-            echo "No package.json found, skipping install"
-          fi
-      
-      - name: Lint code (if configured)
-        run: |
-          if [ -f package.json ] && npm run | grep -q "lint"; then
-            npm run lint || echo "Linting failed but continuing..."
-          else
-            echo "No lint script found, skipping"
-          fi
-        continue-on-error: true
-      
-      - name: Run tests (if configured)
-        run: |
-          if [ -f package.json ] && npm run | grep -q "test"; then
-            npm test -- --passWithNoTests || echo "Tests failed but continuing..."
-          else
-            echo "No test script found, skipping"
-          fi
-        continue-on-error: true
-      
-      - name: Build project
-        run: |
-          if [ -f package.json ] && npm run | grep -q "build"; then
-            npm run build
-          else
-            echo "No build script found, skipping"
-          fi
-        continue-on-error: true
-      
-      - name: Validate React components
-        run: |
-          echo "Validating generated React components..."
-          find src/modules -name "*.jsx" -o -name "*.js" | while read file; do
-            echo "Checking: $file"
-            if grep -q "import.*React" "$file" && grep -q "export" "$file"; then
-              echo "✓ $file is valid"
-            else
-              echo "⚠ $file may have issues"
-            fi
-          done
-      
-      - name: Create build artifacts
-        run: |
-          mkdir -p artifacts
-          echo "Build completed at $(date)" > artifacts/build-info.txt
-          echo "Branch: ${{ github.ref_name }}" >> artifacts/build-info.txt
-          echo "Commit: ${{ github.sha }}" >> artifacts/build-info.txt
-          echo "Status: success" >> artifacts/build-info.txt
-          
-          # Copy generated files
-          if [ -d "src/modules" ]; then
-            cp -r src/modules artifacts/
-          fi
-          
-          # Copy build output if exists
-          if [ -d "build" ]; then
-            cp -r build artifacts/build-output
-          fi
-      
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts
-          path: artifacts/
-          retention-days: 7
-      
-      - name: Notify n8n (if resumeUrl provided)
-        if: always() && inputs.resumeUrl != ''
-        run: |
-          curl -X POST "${{ inputs.resumeUrl }}" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "status": "${{ job.status }}",
-              "branch": "${{ github.ref_name }}",
-              "commit": "${{ github.sha }}",
-              "run_id": "${{ github.run_id }}"
-            }'
-      
-      - name: Summary
-        if: always()
-        run: |
-          echo "### Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status**: ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch**: ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Run ID**: ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+    # 1. Get the code from the specific branch being tested
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # 2. Set up the correct Node.js version and cache npm packages
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm' # Use npm for caching
+        cache-dependency-path: package-lock.json # Use lock file for cache accuracy
+
+    # 3. Clean npm cache to avoid stale data
+    - name: Clean npm cache
+      run: npm cache clean --force
+
+    # 4. Install dependencies, forcing through peer conflicts
+    - name: Install dependencies
+      run: npm install --force
+
+    # 5. Run the tests and output results to a file
+    - name: Run tests and create results file
+      # Ensure 'npm test' script generates 'test-results.json'
+      run: npm test -- --json --outputFile=test-results.json
+      continue-on-error: true # Allow workflow to continue even if tests fail
+
+    # 6. Upload the test results file as an artifact
+    - name: Upload Test Results Artifact
+      # This runs even if tests failed because of 'continue-on-error'
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-logs # Name n8n will look for
+        path: test-results.json # File to upload
+        retention-days: 1 # Keep artifact for 1 day
