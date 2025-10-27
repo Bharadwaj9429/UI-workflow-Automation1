@@ -9,4 +9,4 @@ on:
 
 jobs:
   call-reusable-workflow:
-    uses: ./.github/workflows/ci-reusable.ym
+    uses: ./.github/workflows/ci-reusable.yml
