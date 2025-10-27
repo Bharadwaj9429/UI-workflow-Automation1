@@ -1,50 +1,49 @@
 name: UI Automation CI
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # Allows manual triggering (which n8n uses)
   push:
-    branches: [ '*' ] # Run on all branches
+    branches: [ '*' ] # Run on pushes to ALL branches
   pull_request:
-    branches: [ '*' ] # Run on pull requests targeting all branches
+    branches: [ '*' ] # Run on pull requests targeting ALL branches
 
 jobs:
   build_test_artifact:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # Use the latest Ubuntu runner
 
     strategy:
       matrix:
-        node-version: [18.x]
+        node-version: [18.x] # Specify Node.js version
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v4 # Action to download your code
 
     - name: Set up Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v4 # Action to install Node.js
       with:
         node-version: ${{ matrix.node-version }}
-        cache: 'npm'
-        cache-dependency-path: package-lock.json # Use lock file for cache
+        cache: 'npm' # Cache using npm
+        cache-dependency-path: package-lock.json # Use lock file for cache accuracy
 
     - name: Clean npm cache
-      run: npm cache clean --force
+      run: npm cache clean --force # Clean cache before install
 
     - name: Install dependencies
-      # Use npm install --force to bypass peer conflicts
+      # Use npm install --force to bypass peer dependency conflicts
       run: npm install --force
 
     - name: Run tests and create results file
-      # Runs the 'test' script from package.json
-      # Now uses the placeholder, so it should pass
+      # Runs the 'test' script from package.json (which we added the placeholder for)
+      # Ensure your 'test' script outputs a file named test-results.json
       run: npm test -- --json --outputFile=test-results.json
-      # Keep continue-on-error in case real tests are added later
-      continue-on-error: true
+      continue-on-error: true # Allow workflow to continue even if tests fail
 
     - name: Upload Test Results Artifact
-      # Uploads an empty/placeholder results file
+      # Upload results even if tests failed
       uses: actions/upload-artifact@v4
       with:
-        name: test-logs
-        path: test-results.json # Path should exist even if empty
+        name: test-logs # Name for n8n to reference
+        path: test-results.json # Path to the generated test results
         if-no-files-found: ignore # Don't fail if test file isn't created
-        retention-days: 1
+        retention-days: 1 # Keep artifact for 1 day
