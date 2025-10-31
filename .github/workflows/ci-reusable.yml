@@ -5,23 +5,26 @@ on:
 
 jobs:
   build_test_artifact:
+    # This job runs on a fresh computer provided by GitHub
     runs-on: ubuntu-latest
+    
+    # These are the steps it will run, in order
     steps:
-      # Step 1: Check out your repository
+      # Step 1: Downloads your repository's code onto the computer
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Step 2: Set up Node.js
+      # Step 2: Installs Node.js on the computer
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
-      # Step 3: Install your project's dependencies
+      # Step 3: Installs your project's dependencies
       - name: Install dependencies with legacy peer deps
         run: npm install --legacy-peer-deps --force
 
-      # Step 4: Run your tests (this is your existing step)
+      # Step 4: Runs your tests
       - name: Run tests (if available)
         run: |
           if npm run | grep -q "test"; then
@@ -32,8 +35,7 @@ jobs:
         continue-on-error: true
 
       # ---
-      # NEW STEP 5: Run n8n workflow to generate files
-      # This runs your n8n workflow, which saves files to the disk
+      # Step 5: Runs your n8n workflow
       # ---
       - name: Run n8n workflow to generate files
         uses: n8n-io/actions-n8n@v1
@@ -48,17 +50,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # ---
-      # NEW STEP 6: Commit and push the generated files
-      # This finds all files n8n just saved and creates ONE commit
+      # Step 6: Commits the files n8n just created
       # ---
       - name: Commit and push generated files
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
+          # This is the commit message it will use
           commit_message: "feat: Add generated AI files"
-          # Add all file types your AI generates:
+          # This tells it which files to look for
           file_pattern: "*.js *.json *.md *.ts *.html *.css"
 
-      # Step 7: Upload your test results (this is your existing step)
+      # Step 7: Uploads your test results
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
