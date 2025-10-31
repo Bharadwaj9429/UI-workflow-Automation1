@@ -7,30 +7,62 @@ jobs:
   build_test_artifact:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-    
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: 18
-    
-    - name: Install dependencies with legacy peer deps
-      run: npm install --legacy-peer-deps --force
-    
-    - name: Run tests (if available)
-      run: |
-        if npm run | grep -q "test"; then
-          npm test -- --json --outputFile=test-results.json || echo '{"testResults":[{"status":"failed"}]}' > test-results.json
-        else
-          echo '{"testResults":[],"message":"No tests configured"}' > test-results.json
-        fi
-      continue-on-error: true
-    
-    - name: Upload Test Results
-      uses: actions/upload-artifact@v4
-      if: always()
-      with:
-        name: test-logs
-        path: test-results.json
-        retention-days: 1
+      # Step 1: Check out your repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      # Step 3: Install your project's dependencies
+      - name: Install dependencies with legacy peer deps
+        run: npm install --legacy-peer-deps --force
+
+      # Step 4: Run your tests (this is your existing step)
+      - name: Run tests (if available)
+        run: |
+          if npm run | grep -q "test"; then
+            npm test -- --json --outputFile=test-results.json || echo '{"testResults":[{"status":"failed"}]}' > test-results.json
+          else
+            echo '{"testResults":[],"message":"No tests configured"}' > test-results.json
+          fi
+        continue-on-error: true
+
+      # ---
+      # NEW STEP 5: Run n8n workflow to generate files
+      # This runs your n8n workflow, which saves files to the disk
+      # ---
+      - name: Run n8n workflow to generate files
+        uses: n8n-io/actions-n8n@v1
+        with:
+          # --- !!! CHECK THIS PATH !!! ---
+          # Make sure this points to your saved n8n workflow .json file
+          workflow: .n8n/workflows/your-workflow.json
+        env:
+          # This is the "password" that allows the n8n 'fs' code to work
+          NODE_FUNCTION_ALLOW_BUILTIN: '*'
+          # This token is needed for the *next* step to commit
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ---
+      # NEW STEP 6: Commit and push the generated files
+      # This finds all files n8n just saved and creates ONE commit
+      # ---
+      - name: Commit and push generated files
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "feat: Add generated AI files"
+          # Add all file types your AI generates:
+          file_pattern: "*.js *.json *.md *.ts *.html *.css"
+
+      # Step 7: Upload your test results (this is your existing step)
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-logs
+          path: test-results.json
+          retention-days: 1
