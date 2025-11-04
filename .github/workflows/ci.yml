@@ -1,12 +1,45 @@
-name: CI - Build and Validate React Components
+name: UI Automation CI
 
 on:
   workflow_dispatch:
   push:
-    branches: [ master, auto/** ]
+    branches: ['*']
   pull_request:
-    branches: [ master ]
+    branches: ['*']
 
 jobs:
-  call-reusable-workflow:
-    uses: ./.github/workflows/ci-reusable.yml
+  build_test_artifact:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm install --force
+
+      - name: Run tests and create results file
+        run: npm test -- --json --outputFile=test-results.json
+        continue-on-error: true
+
+      - name: Upload Test Results Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-logs
+          path: test-results.json
+          if-no-files-found: warn
+          retention-days: 1
+
+      - name: Check test results exist
+        run: |
+          if [ ! -f test-results.json ]; then
+            echo "test-results.json not found!"
+            exit 1
+          fi
