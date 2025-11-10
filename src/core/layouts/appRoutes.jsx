@@ -1,12 +1,35 @@
 import React from 'react';
 import { Route, Routes } from 'react-router-dom';
-import { additionalModuleRoutes } from './routeConfig';
-import NotFound from './shared/components/NotFound';
-import { TaskRoutes } from '../../modules/tasks/routesConfig';
+import { publicRoutes } from './publicRoutes';
+import { privateRoutes } from './privateRoutes';
+
+// Import module routes
+import { ExchangesRoutes } from '~/modules/exchanges/routesConfig';
 
 const AppRoutes = () => {
+  // Add module routes here
+  const additionalModuleRoutes = [
+    ...ExchangesRoutes,
+  ];
+
   return (
     <Routes>
+      {publicRoutes.map((route, index) => (
+        <Route
+          key={index}
+          path={route.path}
+          element={<route.component />}
+        />
+      ))}
+
+      {privateRoutes.map((route, index) => (
+        <Route
+          key={index}
+          path={route.path}
+          element={<route.component />}
+        />
+      ))}
+
       {additionalModuleRoutes.map((route, index) => (
         <Route
           key={index}
@@ -14,14 +37,6 @@ const AppRoutes = () => {
           element={<route.component />}
         />
       ))}
-      {TaskRoutes.map((route, index) => (
-        <Route
-          key={index}
-          path={route.path}
-          element={<route.component />}
-        />
-      ))}
-      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 };
