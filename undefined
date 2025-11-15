@@ -1,59 +1,47 @@
-import React, { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
-import { Tag, Button, Spin, Alert } from 'antd';
-import { getKycStatus } from '~/reducers/kycSlice';
+import React from 'react';
+import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { BrowserRouter } from 'react-router-dom';
+import { Provider } from 'react-redux';
+import configureStore from 'redux-mock-store';
+import KycStatusBadge from '../KycStatusBadge';
 
-const KycStatusBadge = () => {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const { status, loading, error } = useSelector((state) => state.kyc);
+const mockStore = configureStore([]);
 
-  useEffect(() => {
-    if (!status || status === 'Not Verified') {
-      dispatch(getKycStatus());
-    }
-  }, [dispatch, status]);
+describe('KycStatusBadge Component', () => {
+  it('renders with Not Verified status and shows button', () => {
+    const store = mockStore({
+      kyc: { status: 'Not Verified', loading: false, error: null },
+    });
+    store.dispatch = vi.fn();
 
-  const getStatusTag = () => {
-    switch (status) {
-      case 'Verified':
-        return <Tag color='green'>Verified</Tag>;
-      case 'Pending':
-        return <Tag color='blue'>Pending Review</Tag>;
-      case 'Rejected':
-        return <Tag color='red'>Rejected</Tag>;
-      case 'Not Verified':
-      default:
-        return <Tag color='orange'>Not Verified</Tag>;
-    }
-  };
+    render(
+      <Provider store={store}>
+        <BrowserRouter>
+          <KycStatusBadge />
+        </BrowserRouter>
+      </Provider>
+    );
 
-  const handleStartVerification = () => {
-    navigate('/kyc/verification');
-  };
+    expect(screen.getByText('Not Verified')).toBeTruthy();
+    expect(screen.getByText('Start Verification')).toBeTruthy();
+  });
 
-  if (loading) {
-    return <Spin size='small' />;
-  }
+  it('renders with Verified status and hides button', () => {
+    const store = mockStore({
+      kyc: { status: 'Verified', loading: false, error: null },
+    });
+    store.dispatch = vi.fn();
 
-  if (error) {
-    return <Alert message={error} type='error' showIcon />;
-  }
+    render(
+      <Provider store={store}>
+        <BrowserRouter>
+          <KycStatusBadge />
+        </BrowserRouter>
+      </Provider>
+    );
 
-  return (
-    <div className='p-4 border rounded-lg bg-[var(--background-1)]'>
-      <h3 className='text-lg font-semibold mb-2 text-[var(--text-primary)]'>Verification Status</h3>
-      <div className='flex items-center justify-between'>
-        <div>{getStatusTag()}</div>
-        {(status === 'Not Verified' || status === 'Rejected') && (
-          <Button type='primary' onClick={handleStartVerification}>
-            Start Verification
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-};
-
-export default KycStatusBadge;
+    expect(screen.getByText('Verified')).toBeTruthy();
+    expect(screen.queryByText('Start Verification')).toBeNull();
+  });
+});
