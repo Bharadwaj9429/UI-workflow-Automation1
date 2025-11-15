@@ -1,120 +1,56 @@
-import React, { useState } from 'react';
-import { Form, Button, Select, Upload, Checkbox, Row, Col, message } from 'antd';
-import { InboxOutlined } from '@ant-design/icons';
+import React from 'react';
+import { Button, Descriptions, Card, List, Typography } from 'antd';
 
-const { Option } = Select;
-const { Dragger } = Upload;
+const { Text } = Typography;
 
-const normFile = (e) => {
-  if (Array.isArray(e)) {
-    return e;
-  }
-  return e && e.fileList;
-};
+const KycReview = ({ formData, onSubmit, onPrev, isLoading }) => {
+  const personalItems = [
+    { key: '1', label: 'Full Name', children: `${formData.firstName || ''} ${formData.lastName || ''}` },
+    { key: '2', label: 'Date of Birth', children: formData.dateOfBirth ? formData.dateOfBirth.format('YYYY-MM-DD') : '' },
+    { key: '3', label: 'Country of Residence', children: formData.countryOfResidence || '' },
+    { key: '4', label: 'Residential Address', children: `${formData.streetAddress || ''}, ${formData.city || ''}, ${formData.stateProvince || ''}, ${formData.postalCode || ''}` },
+  ];
 
-const KycDocumentUpload = ({ onNext, onPrev, initialValues }) => {
-  const [form] = Form.useForm();
-  const documentType = Form.useWatch('documentType', form);
-
-  const onFinish = (values) => {
-    const files = {
-        idFront: values.idFront,
-        idBack: values.idBack,
-        proofOfAddress: values.proofOfAddress
-    }
-    const otherData = { ...values, files };
-    delete otherData.idFront;
-    delete otherData.idBack;
-    delete otherData.proofOfAddress;
-    onNext(otherData);
+  const documentTypeMap = {
+    passport: 'Passport',
+    drivers_license: "Driver's License",
+    national_id: 'National ID Card'
   };
 
-  const draggerProps = {
-    name: 'file',
-    multiple: false,
-    beforeUpload: (file) => {
-      const isJpgOrPng = file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'application/pdf';
-      if (!isJpgOrPng) {
-        message.error('You can only upload JPG/PNG/PDF file!');
-      }
-      const isLt2M = file.size / 1024 / 1024 < 5;
-      if (!isLt2M) {
-        message.error('Image must smaller than 5MB!');
-      }
-      return false; // Prevent auto-upload
-    },
-    listType: 'picture',
-  };
+  const documentItems = [
+    { key: '1', label: 'Document Type', children: documentTypeMap[formData.documentType] || '' },
+  ];
+
+  const uploadedFiles = [];
+  if (formData.files?.idFront?.[0]) uploadedFiles.push(`ID Front: ${formData.files.idFront[0].name}`);
+  if (formData.files?.idBack?.[0]) uploadedFiles.push(`ID Back: ${formData.files.idBack[0].name}`);
+  if (formData.files?.proofOfAddress?.[0]) uploadedFiles.push(`Proof of Address: ${formData.files.proofOfAddress[0].name}`);
 
   return (
-    <Form form={form} layout='vertical' onFinish={onFinish} initialValues={initialValues}>
-      <Form.Item
-        name='documentType'
-        label='Document Type'
-        rules={[{ required: true, message: 'Please select a document type' }]}
-      >
-        <Select placeholder='Select a document type'>
-          <Option value='passport'>Passport</Option>
-          <Option value='drivers_license'>Driver's License</Option>
-          <Option value='national_id'>National ID Card</Option>
-        </Select>
-      </Form.Item>
+    <div>
+      <Card title='Personal Details' className='mb-4'>
+        <Descriptions items={personalItems} column={1} bordered />
+      </Card>
+      <Card title='Uploaded Documents'>
+        <Descriptions items={documentItems} column={1} bordered className='mb-4' />
+        <List
+          header={<div>Files to be Submitted</div>}
+          bordered
+          dataSource={uploadedFiles}
+          renderItem={(item) => <List.Item><Text>{item}</Text></List.Item>}
+        />
+      </Card>
 
-      <Row gutter={16}>
-        <Col xs={24} sm={documentType === 'passport' ? 24 : 12}>
-          <Form.Item
-            name='idFront'
-            label={documentType === 'passport' ? 'Document Upload' : 'Front-Side Upload'}
-            valuePropName='fileList'
-            getValueFromEvent={normFile}
-            rules={[{ required: true, message: 'Please upload the front of your document' }]}
-          >
-            <Dragger {...draggerProps}><p className='ant-upload-drag-icon'><InboxOutlined /></p><p className='ant-upload-text'>Click or drag file to this area to upload</p></Dragger>
-          </Form.Item>
-        </Col>
-        {(documentType === 'drivers_license' || documentType === 'national_id') && (
-          <Col xs={24} sm={12}>
-            <Form.Item
-              name='idBack'
-              label='Back-Side Upload'
-              valuePropName='fileList'
-              getValueFromEvent={normFile}
-              rules={[{ required: true, message: 'Please upload the back of your document' }]}
-            >
-              <Dragger {...draggerProps}><p className='ant-upload-drag-icon'><InboxOutlined /></p><p className='ant-upload-text'>Click or drag file to this area to upload</p></Dragger>
-            </Form.Item>
-          </Col>
-        )}
-      </Row>
-
-      <Form.Item
-        name='proofOfAddress'
-        label='Proof of Address (Utility Bill, Bank Statement)'
-        valuePropName='fileList'
-        getValueFromEvent={normFile}
-        rules={[{ required: true, message: 'Please upload proof of address' }]}
-      >
-        <Dragger {...draggerProps}><p className='ant-upload-drag-icon'><InboxOutlined /></p><p className='ant-upload-text'>Click or drag file to this area to upload</p></Dragger>
-      </Form.Item>
-
-      <Form.Item
-        name='certifyAge'
-        valuePropName='checked'
-        rules={[{ validator: (_, value) => value ? Promise.resolve() : Promise.reject(new Error('You must certify the document age')) }]}
-      >
-        <Checkbox>I certify this document is less than 3 months old.</Checkbox>
-      </Form.Item>
-
-      <Form.Item>
-        <Button onClick={onPrev} className='mr-2'>
+      <div className='mt-8'>
+        <Button onClick={onPrev} className='mr-2' disabled={isLoading}>
           Previous
         </Button>
-        <Button type='primary' htmlType='submit'>
-          Next
+        <Button type='primary' onClick={onSubmit} loading={isLoading}>
+          Submit for Verification
         </Button>
-      </Form.Item>
-    </Form>
+      </div>
+    </div>
   );
 };
 
-export default KycDocumentUpload;
+export default KycReview;
