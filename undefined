@@ -1,47 +1,83 @@
-import React from 'react';
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
-import { BrowserRouter } from 'react-router-dom';
-import { Provider } from 'react-redux';
-import configureStore from 'redux-mock-store';
-import KycStatusBadge from '../KycStatusBadge';
+import React, { useState } from 'react';
+import { Steps, Button, message, Spin, Card } from 'antd';
+import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import KycPersonalDetailsForm from './components/KycPersonalDetailsForm';
+import KycDocumentUpload from './components/KycDocumentUpload';
+import KycReview from './components/KycReview';
+import { submitKycData } from '~/reducers/kycSlice';
 
-const mockStore = configureStore([]);
+const { Step } = Steps;
 
-describe('KycStatusBadge Component', () => {
-  it('renders with Not Verified status and shows button', () => {
-    const store = mockStore({
-      kyc: { status: 'Not Verified', loading: false, error: null },
-    });
-    store.dispatch = vi.fn();
+const steps = [
+  { title: 'Personal Details' },
+  { title: 'Document Upload' },
+  { title: 'Review & Submit' },
+];
 
-    render(
-      <Provider store={store}>
-        <BrowserRouter>
-          <KycStatusBadge />
-        </BrowserRouter>
-      </Provider>
-    );
+const KycVerificationFlow = () => {
+  const [current, setCurrent] = useState(0);
+  const [formData, setFormData] = useState({});
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { loading, error } = useSelector((state) => state.kyc);
 
-    expect(screen.getByText('Not Verified')).toBeTruthy();
-    expect(screen.getByText('Start Verification')).toBeTruthy();
-  });
+  const handleNext = (data) => {
+    setFormData({ ...formData, ...data });
+    setCurrent(current + 1);
+  };
 
-  it('renders with Verified status and hides button', () => {
-    const store = mockStore({
-      kyc: { status: 'Verified', loading: false, error: null },
-    });
-    store.dispatch = vi.fn();
+  const handlePrev = () => {
+    setCurrent(current - 1);
+  };
 
-    render(
-      <Provider store={store}>
-        <BrowserRouter>
-          <KycStatusBadge />
-        </BrowserRouter>
-      </Provider>
-    );
+  const handleSubmit = async () => {
+    const data = new FormData();
+    for (const key in formData) {
+      if (key === 'files') {
+        Object.keys(formData.files).forEach(fileKey => {
+            if (formData.files[fileKey] && formData.files[fileKey][0]) {
+                data.append(fileKey, formData.files[fileKey][0].originFileObj);
+            }
+        })
+      } else if (key === 'dateOfBirth') {
+        data.append(key, formData[key].toISOString());
+      } else {
+        data.append(key, formData[key]);
+      }
+    }
 
-    expect(screen.getByText('Verified')).toBeTruthy();
-    expect(screen.queryByText('Start Verification')).toBeNull();
-  });
-});
+    const resultAction = await dispatch(submitKycData(data));
+    if (submitKycData.fulfilled.match(resultAction)) {
+      message.success('KYC information submitted successfully for review.');
+      navigate('/profile/settings'); // Or wherever the profile page is
+    } else {
+      message.error(resultAction.payload || 'Failed to submit KYC data.');
+    }
+  };
+
+  const stepContent = [
+    <KycPersonalDetailsForm onNext={handleNext} initialValues={formData} />,
+    <KycDocumentUpload onNext={handleNext} onPrev={handlePrev} initialValues={formData} />,
+    <KycReview formData={formData} onSubmit={handleSubmit} onPrev={handlePrev} isLoading={loading} />,
+  ];
+
+  return (
+    <div className='p-4 sm:p-8 bg-[var(--bodyBg)] min-h-screen'>
+      <Card title='Customer Verification (KYC)' className='max-w-4xl mx-auto'>
+        <Steps current={current} className='mb-8'>
+          {steps.map((item) => (
+            <Step key={item.title} title={item.title} />
+          ))}
+        </Steps>
+        <div className='steps-content min-h-[300px]'>
+          <Spin spinning={loading} tip='Submitting...'>
+            {stepContent[current]}
+          </Spin>
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+export default KycVerificationFlow;
